@@ -11,15 +11,15 @@ import AVFoundation
 class CameraManager: NSObject {
     let captureSession = AVCaptureSession()
     private var deviceInput: AVCaptureDeviceInput?
-    private var videoOutput: AVCapturePhotoOutput?
-    private var sessionQueue = DispatchQueue(label: "video.preview.session")
+    private var output: AVCapturePhotoOutput?
+    private var sessionQueue = DispatchQueue(label: "session.queue")
     
-    private var addToPreviewStream: ((CGImage) -> Void)?
+    private var addToPhotoStream: ((AVCapturePhoto) -> Void)?
     
-    lazy var previewStream: AsyncStream<CGImage> = {
+    lazy var photoStream: AsyncStream<AVCapturePhoto> = {
         AsyncStream { continuation in
-            addToPreviewStream = { cgImage in
-                continuation.yield(cgImage)
+            addToPhotoStream = { Image in
+                continuation.yield(Image)
             }
         }
     }()
@@ -46,7 +46,6 @@ class CameraManager: NSObject {
         
         Task {
             await configureSession()
-            await startSession()
         }
     }
     
@@ -54,9 +53,9 @@ class CameraManager: NSObject {
         guard await isAuthorized
         else { return }
         
-        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera,
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera,
                                                         for: .video, position: .back) else { return }
-        let deviceInput = try? AVCaptureDeviceInput(device: videoDevice)
+        let deviceInput = try? AVCaptureDeviceInput(device: device)
         
         captureSession.beginConfiguration()
         
@@ -64,37 +63,60 @@ class CameraManager: NSObject {
             self.captureSession.commitConfiguration()
         }
         
-        let videoOutput = AVCaptureVideoDataOutput()
-        videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
+        output = AVCapturePhotoOutput()
         
         guard captureSession.canAddInput(deviceInput!) else {
             print("Unable to add device input to capture session.")
             return
         }
         
-        guard captureSession.canAddOutput(videoOutput) else {
+        guard captureSession.canAddOutput(output!) else {
             print("Unable to add video output to capture session.")
             return
         }
         
         captureSession.addInput(deviceInput!)
-        captureSession.addOutput(videoOutput)
+        captureSession.addOutput(output!)
     }
     
-    private func startSession() async {
+    func startSession() async {
         guard await isAuthorized else { return }
 
         captureSession.startRunning()
     }
+    
+    func takePhoto() {
+        guard let photoOutput = self.output else { return }
+        
+        sessionQueue.async {
+            var photoSettings = AVCapturePhotoSettings()
+
+
+            if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+                photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+            }
+            
+            let isFlashAvailable = self.deviceInput?.device.isFlashAvailable ?? false
+            photoSettings.flashMode = isFlashAvailable ? .auto : .off
+            photoSettings.maxPhotoDimensions = CMVideoDimensions(width: 200, height: 200)
+            if let previewPhotoPixelFormatType = photoSettings.availablePreviewPhotoPixelFormatTypes.first {
+                photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: previewPhotoPixelFormatType]
+            }
+            photoSettings.photoQualityPrioritization = .balanced
+            
+            photoOutput.capturePhoto(with: photoSettings, delegate: self)
+        }
+    }
 }
 
-extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
-    
-    func captureOutput(_ output: AVCaptureOutput,
-                       didOutput sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
-        guard let currentFrame = sampleBuffer.cgImage else { return }
-        addToPreviewStream?(currentFrame)
+extension CameraManager: AVCapturePhotoCaptureDelegate {
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        
+        if let error = error {
+            print("Error capturing photo: \(error.localizedDescription)")
+            return
+        }
+        
+        addToPhotoStream?(photo)
     }
-    
 }

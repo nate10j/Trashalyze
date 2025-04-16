@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MainView: View {
     @State var selectedTabIndex: Int = 0
+    @State var cameraManager = CameraManager()
     
     var body: some View {
         VStack {
@@ -18,7 +19,7 @@ struct MainView: View {
                 case 0:
                     HomeView()
                 case 1:
-                    CameraView()
+                    CameraView(selectedTabIndex: $selectedTabIndex, cameraManager: $cameraManager)
                 case 2:
                     SettingsView()
                 default:
@@ -28,7 +29,11 @@ struct MainView: View {
             
             Spacer()
             
-            CustomTabBar(selectedTabIndex: $selectedTabIndex)
+            if selectedTabIndex == 1 {
+                // if it is 1 (meant to keep things truthy
+            } else {
+                CustomTabBar(selectedTabIndex: $selectedTabIndex, cameraManager: $cameraManager)
+            }
         }
     }
 }

@@ -19,6 +19,12 @@ struct MainView: View {
                 case 0:
                     HomeView()
                 case 1:
+                    let _ = {
+                        Task {
+                            await cameraManager.startSession()
+                        }
+                    }
+                    
                     CameraView(selectedTabIndex: $selectedTabIndex, cameraManager: $cameraManager)
                 case 2:
                     SettingsView()

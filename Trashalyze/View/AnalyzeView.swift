@@ -8,11 +8,27 @@
 import SwiftUI
 
 struct AnalyzeView: View {
+    @Binding var cameraManager: CameraManager
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        if let image = cameraManager.image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .clipped()
+        } else {
+            // Placeholder for when no image is available
+            Image(systemName: "camera")
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(.gray)
+                .padding(50)
+            Text("No image captured")
+        }
     }
 }
 
 #Preview {
-    AnalyzeView()
+    @Previewable @State var cameraManager = CameraManager()
+    AnalyzeView(cameraManager: $cameraManager)
 }

@@ -5,24 +5,16 @@
 //  Created by Nathan Jang on 4/15/25.
 //
 
+import SwiftUI
 import Foundation
 import AVFoundation
 
 class CameraManager: NSObject {
     let captureSession = AVCaptureSession()
+    var image: UIImage?
     private var deviceInput: AVCaptureDeviceInput?
     private var output: AVCapturePhotoOutput?
     private var sessionQueue = DispatchQueue(label: "session.queue")
-    
-    private var addToPhotoStream: ((AVCapturePhoto) -> Void)?
-    
-    lazy var photoStream: AsyncStream<AVCapturePhoto> = {
-        AsyncStream { continuation in
-            addToPhotoStream = { Image in
-                continuation.yield(Image)
-            }
-        }
-    }()
     
     private var isAuthorized: Bool {
         get async {
@@ -111,12 +103,7 @@ class CameraManager: NSObject {
 
 extension CameraManager: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        
-        if let error = error {
-            print("Error capturing photo: \(error.localizedDescription)")
-            return
-        }
-        
-        addToPhotoStream?(photo)
+        guard let imageData = photo.fileDataRepresentation() else { return }
+        image = UIImage(data: imageData)
     }
 }

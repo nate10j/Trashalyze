@@ -9,12 +9,15 @@ import SwiftUI
 import Foundation
 import AVFoundation
 
-class CameraManager: NSObject {
+class CameraManager: NSObject, ObservableObject {
     let captureSession = AVCaptureSession()
     var image: UIImage?
+    
     private var deviceInput: AVCaptureDeviceInput?
     private var output: AVCapturePhotoOutput?
     private var sessionQueue = DispatchQueue(label: "session.queue")
+    
+    var completionHandler: () -> () = {}
     
     private var isAuthorized: Bool {
         get async {
@@ -77,33 +80,33 @@ class CameraManager: NSObject {
         captureSession.startRunning()
     }
     
-    func takePhoto() {
+    func takePhoto(completion: @escaping () -> Void) {
         guard let photoOutput = self.output else { return }
         
-        sessionQueue.async {
-            var photoSettings = AVCapturePhotoSettings()
-
-
-            if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-                photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-            }
-            
-            let isFlashAvailable = self.deviceInput?.device.isFlashAvailable ?? false
-            photoSettings.flashMode = isFlashAvailable ? .auto : .off
-            photoSettings.maxPhotoDimensions = CMVideoDimensions(width: 200, height: 200)
-            if let previewPhotoPixelFormatType = photoSettings.availablePreviewPhotoPixelFormatTypes.first {
-                photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: previewPhotoPixelFormatType]
-            }
-            photoSettings.photoQualityPrioritization = .balanced
-            
-            photoOutput.capturePhoto(with: photoSettings, delegate: self)
+        var photoSettings = AVCapturePhotoSettings()
+        
+        if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+            photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
         }
+        
+        let isFlashAvailable = self.deviceInput?.device.isFlashAvailable ?? false
+        photoSettings.flashMode = isFlashAvailable ? .auto : .off
+        if let previewPhotoPixelFormatType = photoSettings.availablePreviewPhotoPixelFormatTypes.first {
+            photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: previewPhotoPixelFormatType]
+        }
+        photoSettings.photoQualityPrioritization = .balanced
+        
+        photoOutput.capturePhoto(with: photoSettings, delegate: self)
+        self.completionHandler = completion
     }
 }
 
 extension CameraManager: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         guard let imageData = photo.fileDataRepresentation() else { return }
+        
         image = UIImage(data: imageData)
+        
+        completionHandler()
     }
 }

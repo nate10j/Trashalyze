@@ -9,7 +9,7 @@ import SwiftUI
 
 struct MainView: View {
     @State var selectedTabIndex: Int = 0
-    @State var cameraManager = CameraManager()
+    @State var cameraManager: CameraManager = CameraManager()
     
     var body: some View {
         VStack {

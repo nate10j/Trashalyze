@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TensorFlowLite
 
 struct AnalyzeView: View {
     @Binding var cameraManager: CameraManager

@@ -1,0 +1,6 @@
+framework module Pods_Trashalyze {
+  umbrella header "Pods-Trashalyze-umbrella.h"
+
+  export *
+  module * { export * }
+}

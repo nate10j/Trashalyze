@@ -8,6 +8,9 @@
 import SwiftUI
 import Foundation
 import AVFoundation
+import TensorFlowLite
+
+let delegate = MetalDelegate()
 
 class CameraManager: NSObject, ObservableObject {
     let captureSession = AVCaptureSession()
@@ -17,7 +20,11 @@ class CameraManager: NSObject, ObservableObject {
     private var output: AVCapturePhotoOutput?
     private var sessionQueue = DispatchQueue(label: "session.queue")
     
+    let modelPath = Bundle.main.path(forResource: "model", ofType: "tflite")
+    
     var completionHandler: () -> () = {}
+    
+    var ready = false
     
     private var isAuthorized: Bool {
         get async {
@@ -72,10 +79,13 @@ class CameraManager: NSObject, ObservableObject {
         
         captureSession.addInput(deviceInput!)
         captureSession.addOutput(output!)
+        
+        ready = true
     }
     
     func startSession() async {
         guard await isAuthorized else { return }
+        guard ready else { return }
 
         captureSession.startRunning()
     }
@@ -108,5 +118,10 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         image = UIImage(data: imageData)
         
         completionHandler()
+        
+        if let interpreter = try? Interpreter(modelPath: modelPath!,
+                                              delegates: [delegate]) {
+          // Run inference ...
+        }
     }
 }
